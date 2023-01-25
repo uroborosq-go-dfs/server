@@ -1,17 +1,20 @@
 package node
 
 import (
-	"server/connector"
+	"errors"
+
+	"github.com/uroborosq-go-dfs/server/connector"
 )
 
-func CreateNode(ip string, port string, maxSize uint64, connectType connector.NetConnectorType) INode {
-	return &Node{ip, port, maxSize, connectType}
+func CreateNode(ip string, port string, maxSize int64, connectType connector.NetConnectorType) INode {
+	return &Node{ip, port, 0, maxSize, connectType}
 }
 
 type Node struct {
 	ip          string
 	port        string
-	maximumSize uint64
+	currentSize int64
+	maximumSize int64
 	connectType connector.NetConnectorType
 }
 
@@ -25,7 +28,19 @@ func (n *Node) GetPort() string {
 	return n.port
 }
 
-func (n *Node) GetMaxSize() uint64 {
+func (n *Node) GetCurrentSize() int64 {
+	return n.currentSize
+}
+
+func (n *Node) UpdateCurrentSize(add int64) error {
+	if add < 0 {
+		return errors.New("size must be greater than zero")
+	}
+	n.currentSize = add
+	return nil
+}
+
+func (n *Node) GetMaxSize() int64 {
 	return n.maximumSize
 }
 

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"net"
+
+	models "github.com/uroborosq-go-dfs/models/tcp-operation-code"
 )
 
 type TcpConnector struct {
@@ -19,9 +21,9 @@ func (h *TcpConnector) SendFile(ip string, port string, partialPath string, file
 	if err != nil {
 		return err
 	}
-
+	defer conn.Close()
 	writer := bufio.NewWriter(conn)
-	write, err := writer.Write([]byte{SendFile})
+	write, err := writer.Write([]byte{models.SendFile})
 
 	if err != nil {
 		return err
@@ -82,7 +84,7 @@ func (h *TcpConnector) RequestFile(ip string, port string, partialPath string, o
 		return err
 	}
 	writer := bufio.NewWriter(conn)
-	write, err := writer.Write([]byte{RequestFile})
+	write, err := writer.Write([]byte{models.RequestFile})
 	if err != nil {
 		return err
 	} else if write != 1 {
@@ -90,10 +92,16 @@ func (h *TcpConnector) RequestFile(ip string, port string, partialPath string, o
 	}
 	pathLenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(pathLenBytes, uint32(len(partialPath)))
-	write, err = writer.Write(pathLenBytes[:])
+	write, err = writer.Write(pathLenBytes)
 	if err != nil {
 		return err
 	} else if write != 4 {
+		return errors.New("can't write to stream")
+	}
+	write, err = writer.Write([]byte(partialPath))
+	if err != nil {
+		return err
+	} else if write != len(partialPath) {
 		return errors.New("can't write to stream")
 	}
 	err = writer.Flush()
@@ -116,13 +124,14 @@ func (h *TcpConnector) RequestFile(ip string, port string, partialPath string, o
 		if err != nil {
 			return err
 		}
-		write, err = writer.Write(buffer[:read])
+		write, err = output.Write(buffer[:read])
 		if err != nil {
 			return err
 		} else if write != read {
 			return errors.New("can't write to the stream")
 		}
 	}
+
 	return nil
 }
 func (h *TcpConnector) RequestListFiles(ip string, port string) ([]string, error) {
@@ -131,7 +140,7 @@ func (h *TcpConnector) RequestListFiles(ip string, port string) ([]string, error
 		return nil, err
 	}
 	writer := bufio.NewWriter(conn)
-	write, err := writer.Write([]byte{RequestList})
+	write, err := writer.Write([]byte{models.RequestList})
 	if err != nil {
 		return nil, err
 	} else if write != 1 {
@@ -169,13 +178,13 @@ func (h *TcpConnector) RequestListFiles(ip string, port string) ([]string, error
 	}
 	return pathList, nil
 }
-func (h *TcpConnector) RequestUsedSize(ip string, port string) (uint64, error) {
+func (h *TcpConnector) RequestUsedSize(ip string, port string) (int64, error) {
 	conn, err := net.Dial("tcp", ip+":"+port)
 	if err != nil {
 		return 0, err
 	}
 	writer := bufio.NewWriter(conn)
-	write, err := writer.Write([]byte{RequestSize})
+	write, err := writer.Write([]byte{models.RequestSize})
 	if err != nil {
 		return 0, err
 	} else if write != 1 {
@@ -193,5 +202,37 @@ func (h *TcpConnector) RequestUsedSize(ip string, port string) (uint64, error) {
 	} else if read != 8 {
 		return 0, errors.New("can't read from the stream")
 	}
-	return binary.BigEndian.Uint64(sizeByte), nil
+	return int64(binary.BigEndian.Uint64(sizeByte)), nil
+}
+func (h *TcpConnector) RemoveFile(ip string, port string, partialPath string) error {
+	conn, err := net.Dial("tcp", ip+":"+port)
+	if err != nil {
+		return err
+	}
+	writer := bufio.NewWriter(conn)
+	write, err := writer.Write([]byte{models.RemoveFile})
+	if err != nil {
+		return err
+	} else if write != 1 {
+		return errors.New("can't write to stream")
+	}
+	pathLenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(pathLenBytes, uint32(len(partialPath)))
+	write, err = writer.Write(pathLenBytes)
+	if err != nil {
+		return err
+	} else if write != 4 {
+		return errors.New("can't write to stream")
+	}
+	write, err = writer.Write([]byte(partialPath))
+	if err != nil {
+		return err
+	} else if write != len(partialPath) {
+		return errors.New("can't write to stream")
+	}
+	err = writer.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
 }

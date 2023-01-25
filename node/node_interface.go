@@ -1,12 +1,14 @@
 package node
 
 import (
-	"server/connector"
+	"github.com/uroborosq-go-dfs/server/connector"
 )
 
 type INode interface {
 	GetIp() string
 	GetPort() string
-	GetMaxSize() uint64
+	GetCurrentSize() int64
+	UpdateCurrentSize(int64) error
+	GetMaxSize() int64
 	GetConnectorType() connector.NetConnectorType
 }
